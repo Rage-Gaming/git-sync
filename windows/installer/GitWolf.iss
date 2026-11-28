@@ -27,6 +27,7 @@ AppSupportURL=https://github.com/ipuppyyt/GitWolf/issues
 VersionInfoVersion={#AppVersion}
 PrivilegesRequired=lowest
 DefaultDirName={autopf}\GitWolf
+DisableWelcomePage=no
 DisableProgramGroupPage=yes
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
