@@ -1,4 +1,4 @@
-; The Windows installer, built by .github/workflows/release.yml with Inno Setup 6.3 or later:
+; The Windows installer, built by .github/workflows/release.yml with Inno Setup 6.7 or later:
 ;   ISCC /DAppVersion=1.2.3 /DSourceDir=<built app> /DOutputDir=<folder> GitWolf.iss
 ; It installs for the current user only, without administrator rights, so that the in-app updater can
 ; replace the files.
@@ -11,6 +11,10 @@
 #endif
 #ifndef OutputDir
   #error OutputDir is not defined
+#endif
+
+#if Ver < EncodeVer(6, 7, 0)
+  #error Inno Setup 6.7 or later is needed
 #endif
 
 #define Program "GitWolf.App.exe"
@@ -41,10 +45,11 @@ UninstallDisplayIcon={app}\{#Program}
 UninstallDisplayName=GitWolf
 Compression=lzma2
 SolidCompression=yes
-WizardStyle=modern
+WizardStyle=modern dark windows11
 ; Drawn from assets/gitwolf-icon.svg by tools/make-icon.ps1.
 WizardImageFile=wizard-100.bmp,wizard-150.bmp,wizard-200.bmp
-WizardSmallImageFile=wizard-small-100.bmp,wizard-small-150.bmp,wizard-small-200.bmp
+; No picture in the top corner of the later pages.
+WizardSmallImageFile=
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked

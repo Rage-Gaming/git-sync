@@ -187,15 +187,10 @@ jobs:
           # unpackaged WinUI app. So the build is shipped, with the published libraries over it.
           Copy-Item "$env:RUNNER_TEMP\publish\*.dll" $out -Force
           Get-ChildItem $out -Recurse -Filter *.pdb | Remove-Item
-          # Most runner images include Inno Setup; the pinned package covers one that doesn't.
-          $findInno = { Get-Item "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" -ErrorAction SilentlyContinue }
-          $iscc = & $findInno
-          if (-not $iscc) {
-            choco install innosetup --version=6.7.1 --yes --no-progress
-            if ($LASTEXITCODE -ne 0) { throw 'Inno Setup could not be installed' }
-            $iscc = & $findInno
-          }
-          if (-not $iscc) { throw 'Inno Setup was not found' }
+          # A pinned Inno Setup, whichever one the runner image has: the installer's theme needs 6.7.
+          choco upgrade innosetup --version=6.7.1 --allow-downgrade --yes --no-progress
+          if ($LASTEXITCODE -ne 0) { throw 'Inno Setup could not be installed' }
+          $iscc = Get-Item "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           $setup = Join-Path $env:RUNNER_TEMP "GitWolf-$env:VERSION-windows-x64-setup.exe"
           function Build-Installer {
             & $iscc.FullName /Q "/DAppVersion=$env:VERSION" "/DSourceDir=$out" "/DOutputDir=$env:RUNNER_TEMP" installer\GitWolf.iss

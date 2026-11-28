@@ -132,21 +132,15 @@ $writer.Flush()
 [IO.File]::WriteAllBytes($out, $file.ToArray())
 "Wrote $out ($($file.Length) bytes)"
 
-# The installer's side picture and corner picture, at the common display scalings.
+# The installer's side picture, at the common display scalings.
 foreach ($scale in 1, 1.5, 2) {
     $welcome = {
         param($dc)
         $dc.PushTransform((New-Object Windows.Media.ScaleTransform $scale, $scale))
         Add-Welcome $dc
     }
-    $pictures = @(
-        @{ Name = 'wizard'; Wide = 164; High = 314; Background = $rect.fill; Draw = $welcome },
-        @{ Name = 'wizard-small'; Wide = 55; High = 55; Background = '#FFFFFF' })
-    foreach ($picture in $pictures) {
-        $path = "$root\windows\installer\$($picture.Name)-$($scale * 100).bmp"
-        $bytes = Get-Picture ($picture.Wide * $scale) ($picture.High * $scale) $picture.Background `
-            (New-Object Windows.Media.Imaging.BmpBitmapEncoder) $picture.Draw
-        [IO.File]::WriteAllBytes($path, $bytes)
-        "Wrote $path ($($bytes.Length) bytes)"
-    }
+    $path = "$root\windows\installer\wizard-$($scale * 100).bmp"
+    $bytes = Get-Picture (164 * $scale) (314 * $scale) $rect.fill (New-Object Windows.Media.Imaging.BmpBitmapEncoder) $welcome
+    [IO.File]::WriteAllBytes($path, $bytes)
+    "Wrote $path ($($bytes.Length) bytes)"
 }
