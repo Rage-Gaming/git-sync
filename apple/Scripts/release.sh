@@ -6,8 +6,9 @@
 #
 # Environment:
 #   SIGN_IDENTITY     default "GitWolf Release", the self-signed certificate from Scripts/make-signing-cert.sh.
-#                     A Developer ID Application identity works too.
-#   NOTARY_PROFILE    optional: also notarise (needs a paid Apple Developer ID; sets the hardened runtime)
+#                     A Developer ID Application identity (used for the published releases) works too.
+#   NOTARY_PROFILE    optional: also notarise (needs a Developer ID; sets the hardened runtime). A profile made with
+#                     `xcrun notarytool store-credentials <name>`. Published releases use it.
 #   GITWOLF_UPDATE_KEY  private update-signing key; defaults to the one in your login Keychain
 #   PREVIOUS_APPCAST  existing appcast.xml to add this release to (so earlier releases stay listed)
 #   RELEASE_NOTES     file with this release's notes (Markdown/plain text), shown in the update window
@@ -37,10 +38,11 @@ fi
 ZIP="$OUT/GitWolf-$VERSION.zip"
 ditto -c -k --sequesterRsrc --keepParent build/GitWolf.app "$ZIP"
 
-# Disk image for the first install, with a note on opening an app that isn't notarised.
+# Disk image for the first install. Without notarisation it carries a note on opening an app Apple hasn't checked.
 STAGE="$(mktemp -d)"
 cp -R build/GitWolf.app "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
+if [ -z "${NOTARY_PROFILE:-}" ]; then
 cat > "$STAGE/Read Me First.txt" <<'TXT'
 Drag GitWolf to Applications.
 
@@ -52,6 +54,7 @@ Or run this in Terminal:  xattr -dr com.apple.quarantine /Applications/GitWolf.a
 
 You only do this once. Updates arrive inside the app and don't ask again.
 TXT
+fi
 DMG="$OUT/GitWolf-$VERSION.dmg"
 hdiutil create -volname "GitWolf" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 rm -rf "$STAGE"
