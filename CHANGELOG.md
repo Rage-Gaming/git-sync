@@ -6,7 +6,7 @@ All notable changes are documented here. Format based on
 
 ## [Unreleased]
 
-## [0.2.3] - 2026-11-28
+## [0.2.4] - 2026-11-28
 
 ### Added (macOS)
 - **Notarised by Apple:** the app and disk image are signed with a Developer ID, so a first install opens without the *Open Anyway* step.
