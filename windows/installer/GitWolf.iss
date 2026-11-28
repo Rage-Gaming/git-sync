@@ -43,8 +43,8 @@ Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
 ; Drawn from assets/gitwolf-icon.svg by tools/make-icon.ps1.
-WizardImageFile=wizard-100.bmp,wizard-200.bmp
-WizardSmallImageFile=wizard-small-100.bmp,wizard-small-200.bmp
+WizardImageFile=wizard-100.bmp,wizard-150.bmp,wizard-200.bmp
+WizardSmallImageFile=wizard-small-100.bmp,wizard-small-150.bmp,wizard-small-200.bmp
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked

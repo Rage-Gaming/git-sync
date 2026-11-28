@@ -52,15 +52,52 @@ function Add-Tile($dc, [double]$size) {
     foreach ($i in 1..4) { $dc.Pop() }
 }
 
-# A picture on a flat background with the tile across its width, centred from top to bottom.
-function Get-Picture([int]$wide, [int]$high, $background, $encoder) {
+function New-Point([double]$x, [double]$y) { New-Object Windows.Point $x, $y }
+
+# One centred line of white-or-tinted text in the system font.
+function Add-Line($dc, [string]$text, [double]$size, $weight, $colour, [double]$middle, [double]$top) {
+    $face = New-Object Windows.Media.Typeface (New-Object Windows.Media.FontFamily 'Segoe UI'),
+        ([Windows.FontStyles]::Normal), $weight, ([Windows.FontStretches]::Normal)
+    $line = New-Object Windows.Media.FormattedText $text, $culture, ([Windows.FlowDirection]::LeftToRight),
+        $face, $size, (Get-Brush $colour), 1.0
+    $dc.DrawText($line, (New-Point ($middle - $line.Width / 2) $top))
+}
+
+# The installer's side picture, drawn 164 by 314: the mark, the name, and a small commit graph. All flat.
+function Add-Welcome($dc) {
+    $dc.PushTransform((New-Object Windows.Media.TranslateTransform 18, 22))
+    Add-Tile $dc 128
+    $dc.Pop()
+    Add-Line $dc 'GitWolf' 25 ([Windows.FontWeights]::SemiBold) '#FFFFFF' 82 150
+    $accent = New-Object Windows.Rect 70, 191, 24, 2
+    $dc.DrawRoundedRectangle((Get-Brush '#6F93FF'), $null, $accent, 1, 1)
+    Add-Line $dc 'Your repositories,' 10.5 ([Windows.FontWeights]::Normal) '#C3D0FA' 82 201
+    Add-Line $dc 'always in sync.' 10.5 ([Windows.FontWeights]::Normal) '#C3D0FA' 82 216
+
+    $pen = New-Object Windows.Media.Pen (Get-Brush '#3D62CC'), 2
+    $dc.DrawLine($pen, (New-Point 0 284), (New-Point 164 284))
+    $branch = [Windows.Media.Geometry]::Parse('M 34,284 C 50,284 46,260 62,260 L 102,260 C 118,260 114,284 130,284')
+    $dc.DrawGeometry($null, $pen, $branch)
+    foreach ($node in @(@(18, 284), @(34, 284), @(66, 260), @(98, 260), @(80, 284), @(130, 284))) {
+        $dc.DrawEllipse((Get-Brush $rect.fill), (New-Object Windows.Media.Pen (Get-Brush '#7E9CF0'), 2),
+            (New-Point $node[0] $node[1]), 3.5, 3.5)
+    }
+    $dc.DrawEllipse((Get-Brush '#FFFFFF'), $null, (New-Point 148 284), 4.5, 4.5)
+}
+
+# A picture on a flat background. Without its own drawing, the tile spans the width, centred from top to
+# bottom.
+function Get-Picture([int]$wide, [int]$high, $background, $encoder, [scriptblock]$draw) {
     $visual = New-Object Windows.Media.DrawingVisual
     $dc = $visual.RenderOpen()
     if ($background) {
         $dc.DrawRectangle((Get-Brush $background), $null, (New-Object Windows.Rect 0, 0, $wide, $high))
     }
-    $dc.PushTransform((New-Object Windows.Media.TranslateTransform 0, (($high - $wide) / 2)))
-    Add-Tile $dc $wide
+    if ($draw) { & $draw $dc }
+    else {
+        $dc.PushTransform((New-Object Windows.Media.TranslateTransform 0, (($high - $wide) / 2)))
+        Add-Tile $dc $wide
+    }
     $dc.Close()
     $bitmap = New-Object Windows.Media.Imaging.RenderTargetBitmap $wide, $high, 96, 96, ([Windows.Media.PixelFormats]::Pbgra32)
     $bitmap.Render($visual)
@@ -95,15 +132,20 @@ $writer.Flush()
 [IO.File]::WriteAllBytes($out, $file.ToArray())
 "Wrote $out ($($file.Length) bytes)"
 
-# The installer's side picture and corner picture, at 100% and 200% scaling.
-foreach ($scale in 1, 2) {
+# The installer's side picture and corner picture, at the common display scalings.
+foreach ($scale in 1, 1.5, 2) {
+    $welcome = {
+        param($dc)
+        $dc.PushTransform((New-Object Windows.Media.ScaleTransform $scale, $scale))
+        Add-Welcome $dc
+    }
     $pictures = @(
-        @{ Name = 'wizard'; Wide = 164; High = 314; Background = $rect.fill },
+        @{ Name = 'wizard'; Wide = 164; High = 314; Background = $rect.fill; Draw = $welcome },
         @{ Name = 'wizard-small'; Wide = 55; High = 55; Background = '#FFFFFF' })
     foreach ($picture in $pictures) {
         $path = "$root\windows\installer\$($picture.Name)-$($scale * 100).bmp"
         $bytes = Get-Picture ($picture.Wide * $scale) ($picture.High * $scale) $picture.Background `
-            (New-Object Windows.Media.Imaging.BmpBitmapEncoder)
+            (New-Object Windows.Media.Imaging.BmpBitmapEncoder) $picture.Draw
         [IO.File]::WriteAllBytes($path, $bytes)
         "Wrote $path ($($bytes.Length) bytes)"
     }
