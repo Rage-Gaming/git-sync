@@ -45,24 +45,23 @@ UninstallDisplayIcon={app}\{#Program}
 UninstallDisplayName=GitWolf
 Compression=lzma2
 SolidCompression=yes
-WizardStyle=modern dark windows11
-; Drawn from assets/gitwolf-icon.svg by tools/make-icon.ps1.
-WizardImageFile=wizard-100.bmp,wizard-150.bmp,wizard-200.bmp
-; No picture in the top corner of the later pages.
+; The interface is one screen (Interface.iss), so the pages that only ask for choices are off.
+WizardStyle=modern dark windows11 hidebevels
+; Also the background of the logo pictures.
+WizardBackColor=#1E1F25
+WizardImageFile=
 WizardSmallImageFile=
-
-[Tasks]
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; Flags: unchecked
+DisableDirPage=yes
+DisableReadyPage=yes
 
 [Files]
+; Drawn from assets/gitwolf-icon.svg by tools/make-icon.ps1. First, so they unpack quickly.
+Source: "logo-*.bmp"; Flags: dontcopy
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
 Name: "{autoprograms}\GitWolf"; Filename: "{app}\{#Program}"
-Name: "{autodesktop}\GitWolf"; Filename: "{app}\{#Program}"; Tasks: desktopicon
-
-[Run]
-Filename: "{app}\{#Program}"; Description: "{cm:LaunchProgram,GitWolf}"; Flags: nowait postinstall skipifsilent
+Name: "{autodesktop}\GitWolf"; Filename: "{app}\{#Program}"; Check: WantsDesktopIcon
 
 [UninstallDelete]
 ; What an in-app update may have left. Nothing else is removed that the installer didn't put there.
@@ -94,3 +93,5 @@ begin
   if CurUninstallStep = usUninstall then
     RemoveOutsideAccess;
 end;
+
+#include "Interface.iss"
