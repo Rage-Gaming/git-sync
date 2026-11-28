@@ -1,17 +1,18 @@
 # Releasing GitWolf
 
-GitWolf updates itself with [Sparkle](https://sparkle-project.org) and costs nothing to run: no Apple
-Developer account, no notarisation. Two things make that safe and smooth.
+GitWolf updates itself with [Sparkle](https://sparkle-project.org). Releases are notarised (see Signing and
+notarisation below), but you can also build and sign without an Apple account. Two things keep updates safe
+and smooth.
 
 - **Update signature (EdDSA).** Every update archive is signed with a private key only you hold. The app
   carries the matching public key (`SUPublicEDKey` in `Resources/Info.plist`) and refuses an update that
   does not verify. This is what protects users, not Apple's notary.
-- **A stable self-signed code-signing certificate** ("GitWolf Release"). Every release is signed with the
-  same certificate, so macOS sees the same app after an update and keeps its Keychain access and
-  permission grants. (Ad-hoc signatures change on every build and would re-prompt.)
+- **A stable code-signing certificate.** Every release is signed with the same certificate (Developer ID for
+  published releases; "GitWolf Release", self-signed, for builds without an Apple account), so macOS sees the
+  same app after an update and keeps its Keychain access and permission grants. (Ad-hoc signatures change on
+  every build and would re-prompt.)
 
 Updates downloaded by the app are not quarantined by macOS, so they open without any Gatekeeper dialog.
-Only the **first install** needs the manual step (below).
 
 ## How it fits together
 
@@ -72,23 +73,24 @@ The website in `site/` is copied to the `gh-pages` branch by the same job, next 
 `https://ipuppyyt.github.io/GitWolf/`. `assets/social-preview.svg` is the repository's social image; GitHub only accepts PNG or JPEG, so render
 it once (1280 x 640) and upload it under Settings > General > Social preview.
 
-## First install for users (once)
+## Signing and notarisation
 
-The disk image contains a *Read Me First* note with this. macOS will say it cannot verify GitWolf, because
-the app is not notarised:
+Published releases are signed with a **Developer ID Application** certificate and notarised by Apple, so a
+first install opens without any warning. The workflow needs these repository secrets: `MACOS_CERTIFICATE_P12`
+and `MACOS_CERTIFICATE_PASSWORD` (the certificate and its key), `NOTARY_KEY_P8`, `NOTARY_KEY_ID` and
+`NOTARY_ISSUER_ID` (an App Store Connect API key with the Developer role), and `GITWOLF_UPDATE_KEY`. The
+workflow keeps the notarisation profile in its temporary keychain and passes `NOTARY_PROFILE` to `release.sh`,
+which builds with the hardened runtime, then notarises and staples the app and the disk image.
 
-1. Drag GitWolf to Applications and open it, then click *Done*.
-2. System Settings > Privacy & Security > scroll down > *Open Anyway* > confirm.
-   Or: `xattr -dr com.apple.quarantine /Applications/GitWolf.app`
+Locally, store a profile once with `xcrun notarytool store-credentials gitwolf-notary` and run
+`SIGN_IDENTITY="Developer ID Application: …" NOTARY_PROFILE=gitwolf-notary Scripts/release.sh <version>`.
 
-After that, updates are installed from inside the app and the step is never repeated.
+Without `NOTARY_PROFILE` (a build for yourself, or signing with the self-signed certificate) the disk image
+carries a *Read Me First* note: macOS says it cannot verify the app, and *Open Anyway* in System Settings >
+Privacy & Security opens it once (or `xattr -dr com.apple.quarantine /Applications/GitWolf.app`).
 
-## Optional: notarisation
-
-If you later get a paid Developer ID, set `SIGN_IDENTITY` to the Developer ID Application identity and
-`NOTARY_PROFILE` (from `xcrun notarytool store-credentials`) when running `release.sh`. It then builds with
-the hardened runtime and notarises and staples the app and disk image, and the first-install step disappears.
-Changing the signing identity once changes the app's identity for existing users, so do it deliberately.
+Moving from the self-signed certificate to Developer ID changes the app's code-signing identity once. Updates
+still verify, because Sparkle checks the EdDSA signature, but macOS may ask again for Keychain access.
 
 ## Version numbers
 

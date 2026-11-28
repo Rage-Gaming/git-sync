@@ -1,12 +1,15 @@
 name: Release
 
 # Pushing a tag like v1.0.0 builds, signs and publishes GitWolf for macOS and then Windows, and updates the
-# feeds that the in-app updaters read. No Apple Developer account is needed (see docs/RELEASING.md). Repository secrets:
-#   MACOS_CERTIFICATE_P12       base64 of the self-signed "GitWolf Release" certificate (.p12)
+# feeds that the in-app updaters read. The Mac app is signed with a Developer ID certificate and notarised by
+# Apple (see docs/RELEASING.md). Repository secrets:
+#   MACOS_CERTIFICATE_P12       base64 of the "Developer ID Application" certificate with its key (.p12)
 #   MACOS_CERTIFICATE_PASSWORD  password of that .p12
+#   NOTARY_KEY_P8               base64 of the App Store Connect API key (.p8) used to notarise
+#   NOTARY_KEY_ID               that key's ID
+#   NOTARY_ISSUER_ID            the issuer ID shown on the App Store Connect keys page
 #   GITWOLF_UPDATE_KEY          the private update-signing key (gitwolf-release keys export)
-# The first three come from the one-time setup in docs/RELEASING.md. The feed is served by GitHub Pages
-# from the gh-pages branch.
+# The feed is served by GitHub Pages from the gh-pages branch.
 # Optional, to Authenticode-sign the Windows program (the release is unsigned without them):
 #   WINDOWS_CERTIFICATE_PFX       base64 of a code-signing certificate (.pfx) for Windows
 #   WINDOWS_CERTIFICATE_PASSWORD  password of that .pfx
@@ -45,6 +48,17 @@ jobs:
           list-keychains -d user -s "$KC" login.keychain-db
           EOS
           rm "$RUNNER_TEMP/cert.p12"
+      - name: Store notarisation credentials
+        env:
+          NOTARY_KEY: ${{ secrets.NOTARY_KEY_P8 }}
+          NOTARY_KEY_ID: ${{ secrets.NOTARY_KEY_ID }}
+          NOTARY_ISSUER_ID: ${{ secrets.NOTARY_ISSUER_ID }}
+        run: |
+          # The key goes to a temporary file that is removed straight away; the profile lives in the build keychain.
+          echo "$NOTARY_KEY" | base64 --decode > "$RUNNER_TEMP/notary.p8"
+          xcrun notarytool store-credentials gitwolf-notary --key "$RUNNER_TEMP/notary.p8" \
+            --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" --keychain "$RUNNER_TEMP/release.keychain-db"
+          rm "$RUNNER_TEMP/notary.p8"
       - name: Previous feed and release notes
         run: |
           git fetch origin gh-pages 2>/dev/null && git show origin/gh-pages:appcast.xml > "$RUNNER_TEMP/previous-appcast.xml" || : > "$RUNNER_TEMP/previous-appcast.xml"
@@ -54,7 +68,8 @@ jobs:
       - name: Build, sign, package
         working-directory: apple
         env:
-          SIGN_IDENTITY: GitWolf Release
+          SIGN_IDENTITY: "Developer ID Application: Nidhin M (4Y59G32M97)"
+          NOTARY_PROFILE: gitwolf-notary
           GITWOLF_UPDATE_KEY: ${{ secrets.GITWOLF_UPDATE_KEY }}
           PREVIOUS_APPCAST: ${{ runner.temp }}/previous-appcast.xml
           RELEASE_NOTES: ${{ runner.temp }}/notes.md
@@ -75,7 +90,6 @@ jobs:
             echo "| Homebrew | \`brew install --cask ipuppyyt/gitwolf/gitwolf\` |"
             echo
             echo "Installed copies update from inside the app. SHA-256 checksums are the \`.sha256\` files below."
-            echo "On a Mac, a first install asks once for *Open Anyway* (System Settings > Privacy & Security), because the app is not notarised."
             echo
             echo "## What's new"
             echo
