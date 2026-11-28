@@ -53,6 +53,11 @@ jobs:
           curl -fsSL https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer -o "$RUNNER_TEMP/devid-g2.cer"
           security import "$RUNNER_TEMP/devid-g2.cer" -k "$KC" || true
           security find-identity -v -p codesigning
+          # `security -i` succeeds even when an import inside it failed (for example a wrong .p12 password), so check.
+          if ! security find-identity -v -p codesigning | grep -q "Developer ID Application: Nidhin M (4Y59G32M97)"; then
+            echo "::error::The Developer ID identity is not in the build keychain. Check that MACOS_CERTIFICATE_P12 is the Developer ID .p12 (exported with its private key) and that MACOS_CERTIFICATE_PASSWORD is the password chosen when exporting it."
+            exit 1
+          fi
       - name: Store notarisation credentials
         env:
           NOTARY_KEY: ${{ secrets.NOTARY_KEY_P8 }}
