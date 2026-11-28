@@ -46,8 +46,13 @@ jobs:
           import "$RUNNER_TEMP/cert.p12" -k "$KC" -P "$CERT_PASSWORD" -T /usr/bin/codesign
           set-key-partition-list -S apple-tool:,apple: -s -k "$KCPASS" "$KC"
           list-keychains -d user -s "$KC" login.keychain-db
+          default-keychain -d user -s "$KC"
           EOS
           rm "$RUNNER_TEMP/cert.p12"
+          # Apple's intermediate certificate, so the Developer ID identity is valid and notarytool finds its profile.
+          curl -fsSL https://www.apple.com/certificateauthority/DeveloperIDG2CA.cer -o "$RUNNER_TEMP/devid-g2.cer"
+          security import "$RUNNER_TEMP/devid-g2.cer" -k "$KC" || true
+          security find-identity -v -p codesigning
       - name: Store notarisation credentials
         env:
           NOTARY_KEY: ${{ secrets.NOTARY_KEY_P8 }}
