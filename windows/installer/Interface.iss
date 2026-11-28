@@ -76,10 +76,43 @@ begin
   Logo.Bitmap.LoadFromFile(ExpandConstant('{tmp}\') + Name);
 end;
 
+function SetWindowLong(Window: HWND; Index: Integer; Value: Longint): Longint;
+  external 'SetWindowLongW@user32.dll stdcall';
+function CallWindowProc(Previous: Longint; Window: HWND; Msg: UINT; WParam, LParam: Longint): Longint;
+  external 'CallWindowProcW@user32.dll stdcall';
+
+const
+  GWL_WNDPROC = -4;
+  WM_NCHITTEST = $0084;
+  HTCLIENT = 1;
+  HTCAPTION = 2;
+
+var
+  PreviousWindowProc: Longint;
+
+// Without a title bar, the window is moved by dragging its background: Windows is told that the
+// background is a title bar.
+function DraggableWindowProc(Window: HWND; Msg: UINT; WParam, LParam: Longint): Longint;
+begin
+  Result := CallWindowProc(PreviousWindowProc, Window, Msg, WParam, LParam);
+  if (Msg = WM_NCHITTEST) and (Result = HTCLIENT) then
+    Result := HTCAPTION;
+end;
+
+procedure DeinitializeSetup;
+begin
+  // Handed back before the script that answers it is unloaded.
+  if PreviousWindowProc <> 0 then
+    SetWindowLong(WizardForm.Handle, GWL_WNDPROC, PreviousWindowProc);
+end;
+
 procedure InitializeWizard;
 var
   Grown, Taller: Integer;
 begin
+  // Before sizing, so that the client area is measured without the frame.
+  WizardForm.BorderStyle := bsNone;
+
   Grown := ScaleX(ViewWidth) - WizardForm.ClientWidth;
   Taller := ScaleY(ViewHeight) - WizardForm.ClientHeight;
   WizardForm.ClientWidth := ScaleX(ViewWidth);
@@ -115,6 +148,9 @@ begin
   WizardForm.NextButton.Parent := WizardForm;
   WizardForm.CancelButton.Parent := WizardForm;
   WizardForm.ProgressGauge.Parent := WizardForm;
+
+  // Last, because changing the frame or a parent can replace the window.
+  PreviousWindowProc := SetWindowLong(WizardForm.Handle, GWL_WNDPROC, CreateCallback(@DraggableWindowProc));
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
