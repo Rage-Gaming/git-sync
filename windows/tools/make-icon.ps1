@@ -1,5 +1,5 @@
 # Renders assets/gitwolf-icon.svg to the Windows app icon, cropped to the tile so it fills the
-# taskbar like other apps. Run again after the artwork changes:
+# taskbar like other apps, and to the installer's pictures. Run again after the artwork changes:
 #   powershell -ExecutionPolicy Bypass -File windows/tools/make-icon.ps1
 # Reads only what that file uses: one rounded rect, then paths and circles in one translate/scale group.
 $ErrorActionPreference = 'Stop'
@@ -23,9 +23,8 @@ $grow = New-Object Windows.Media.ScaleTransform (Read-Number $Matches[3]), (Read
 $left = Read-Number $rect.x
 $width = Read-Number $rect.width
 
-function Get-Png([int]$size) {
-    $visual = New-Object Windows.Media.DrawingVisual
-    $dc = $visual.RenderOpen()
+# The tile and its mark, $size across, drawn at the context's origin.
+function Add-Tile($dc, [double]$size) {
     $dc.PushTransform((New-Object Windows.Media.ScaleTransform ($size / $width), ($size / $width)))
     $dc.PushTransform((New-Object Windows.Media.TranslateTransform (-$left), (-$left)))
     $radius = Read-Number $rect.rx
@@ -49,10 +48,26 @@ function Get-Png([int]$size) {
         }
         else { throw "Unexpected element: $($node.LocalName)" }
     }
+    # The tile's two transforms and the mark's two.
+    foreach ($i in 1..4) { $dc.Pop() }
+}
+
+# A picture on a flat background with the tile across its width, centred from top to bottom.
+function Get-Picture([int]$wide, [int]$high, $background, $encoder) {
+    $visual = New-Object Windows.Media.DrawingVisual
+    $dc = $visual.RenderOpen()
+    if ($background) {
+        $dc.DrawRectangle((Get-Brush $background), $null, (New-Object Windows.Rect 0, 0, $wide, $high))
+    }
+    $dc.PushTransform((New-Object Windows.Media.TranslateTransform 0, (($high - $wide) / 2)))
+    Add-Tile $dc $wide
     $dc.Close()
-    $bitmap = New-Object Windows.Media.Imaging.RenderTargetBitmap $size, $size, 96, 96, ([Windows.Media.PixelFormats]::Pbgra32)
+    $bitmap = New-Object Windows.Media.Imaging.RenderTargetBitmap $wide, $high, 96, 96, ([Windows.Media.PixelFormats]::Pbgra32)
     $bitmap.Render($visual)
-    $encoder = New-Object Windows.Media.Imaging.PngBitmapEncoder
+    # Inno Setup reads .bmp files without transparency.
+    if ($encoder -is [Windows.Media.Imaging.BmpBitmapEncoder]) {
+        $bitmap = New-Object Windows.Media.Imaging.FormatConvertedBitmap $bitmap, ([Windows.Media.PixelFormats]::Bgr24), $null, 0
+    }
     $encoder.Frames.Add([Windows.Media.Imaging.BitmapFrame]::Create($bitmap))
     $stream = New-Object IO.MemoryStream
     $encoder.Save($stream)
@@ -61,7 +76,9 @@ function Get-Png([int]$size) {
 
 # An .ico is a directory of images; each entry here is a PNG.
 $sizes = 16, 20, 24, 32, 40, 48, 64, 128, 256
-$images = foreach ($size in $sizes) { , (Get-Png $size) }
+$images = foreach ($size in $sizes) {
+    , (Get-Picture $size $size $null (New-Object Windows.Media.Imaging.PngBitmapEncoder))
+}
 $file = New-Object IO.MemoryStream
 $writer = New-Object IO.BinaryWriter $file
 $writer.Write([uint16]0); $writer.Write([uint16]1); $writer.Write([uint16]$sizes.Count)
@@ -77,3 +94,17 @@ foreach ($image in $images) { $writer.Write([byte[]]$image) }
 $writer.Flush()
 [IO.File]::WriteAllBytes($out, $file.ToArray())
 "Wrote $out ($($file.Length) bytes)"
+
+# The installer's side picture and corner picture, at 100% and 200% scaling.
+foreach ($scale in 1, 2) {
+    $pictures = @(
+        @{ Name = 'wizard'; Wide = 164; High = 314; Background = $rect.fill },
+        @{ Name = 'wizard-small'; Wide = 55; High = 55; Background = '#FFFFFF' })
+    foreach ($picture in $pictures) {
+        $path = "$root\windows\installer\$($picture.Name)-$($scale * 100).bmp"
+        $bytes = Get-Picture ($picture.Wide * $scale) ($picture.High * $scale) $picture.Background `
+            (New-Object Windows.Media.Imaging.BmpBitmapEncoder)
+        [IO.File]::WriteAllBytes($path, $bytes)
+        "Wrote $path ($($bytes.Length) bytes)"
+    }
+}
