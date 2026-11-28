@@ -6,6 +6,20 @@ All notable changes are documented here. Format based on
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-28
+
+### Added (macOS)
+- **Notarised by Apple:** the app and disk image are signed with a Developer ID, so a first install opens without the *Open Anyway* step.
+- **Language logos:** files show the logo of their language or tool (about 100, from Simple Icons) in its brand colour, with lettered tiles where no logo exists. Many more extensions and file names are recognised.
+- **Filter the Changes list:** a search box appears once more than 20 files have changed. Stage All and Unstage All become *Stage Shown* and *Unstage Shown* while a filter is active.
+
+### Added (Windows)
+- **Repository icons:** right-click a tile and choose *Change icon…* for a symbol, a tile colour or a picture, or drop a picture on the tile. Pictures are stored in the app's data folder, never in the repository. (Thanks to Rage-Gaming.)
+- The app and taskbar now use the wolf icon.
+
+### Changed
+- The website has a working demo window of the app on Mac and Windows, and no navigation bar.
+
 ## [0.2.0] - 2026-11-28
 
 ### Added (macOS)
